@@ -363,12 +363,12 @@ function renderGrid() {
 
 function channelCard(ch) {
   const name = ch.name.replace(/[┃│]/g,'').trim();
-  const logoHtml = ch.logo
-    ? `<img src="${escapeAttr(ch.logo)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/><div class="thumb-fallback" style="display:none">${name.substring(0,6)}</div>`
-    : `<div class="thumb-fallback">${name.substring(0,8)}</div>`;
+  const fallbackSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(name.substring(0,2))}&background=0a2a30&color=30E9FE&size=64&bold=true`;
+  const logoSrc = ch.logo ? escapeAttr(ch.logo) : fallbackSrc;
+  const logoHtml = `<img src="${logoSrc}" alt="" loading="lazy" onerror="this.src='${fallbackSrc}'"/>`;
   const isSaved = saved.some(s => s.url === ch.url);
   const chData = encodeURIComponent(JSON.stringify({name:ch.name,logo:ch.logo,group:ch.group,url:ch.url}));
-  return `<div class="channel-card" onclick="openPlayer(${chData})">
+  return `<div class="channel-card" onclick="openPlayer('${chData}')">
     <div class="card-thumb">
       ${logoHtml}
       <div class="card-live-dot"></div>
@@ -416,8 +416,9 @@ function doSearch(q) {
     el.innerHTML = results.map(ch => {
       const name = ch.name.replace(/[┃│]/g,'').trim();
       const chData = encodeURIComponent(JSON.stringify({name:ch.name,logo:ch.logo,group:ch.group,url:ch.url}));
-      return `<div class="search-item view-fade" onclick="openPlayer(${chData})">
-        <div class="search-item-logo">${ch.logo ? `<img src="${escapeAttr(ch.logo)}" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain"/>` : `<i class="fas fa-tv" style="color:var(--cyan);font-size:16px"></i>`}</div>
+      const fb2 = `https://ui-avatars.com/api/?name=${encodeURIComponent(name.substring(0,2))}&background=0a2a30&color=30E9FE&size=64&bold=true`;
+      return `<div class="search-item view-fade" onclick="openPlayer('${chData}')">
+        <div class="search-item-logo"><img src="${ch.logo ? escapeAttr(ch.logo) : fb2}" loading="lazy" onerror="this.src='${fb2}'" style="width:80%;height:80%;object-fit:contain"/></div>
         <div class="search-item-info">
           <div class="search-item-name">${name}</div>
           <div class="search-item-group">${cleanGroup(ch.group)}</div>
@@ -443,8 +444,9 @@ function renderSaved() {
   el.innerHTML = saved.map(ch => {
     const name = ch.name.replace(/[┃│]/g,'').trim();
     const chData = encodeURIComponent(JSON.stringify(ch));
-    return `<div class="search-item view-fade" onclick="openPlayer(${chData})">
-      <div class="search-item-logo">${ch.logo ? `<img src="${escapeAttr(ch.logo)}" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain"/>` : `<i class="fas fa-tv" style="color:var(--cyan);font-size:16px"></i>`}</div>
+    const fb3 = `https://ui-avatars.com/api/?name=${encodeURIComponent(name.substring(0,2))}&background=0a2a30&color=30E9FE&size=64&bold=true`;
+    return `<div class="search-item view-fade" onclick="openPlayer('${chData}')">
+      <div class="search-item-logo"><img src="${ch.logo ? escapeAttr(ch.logo) : fb3}" loading="lazy" onerror="this.src='${fb3}'" style="width:80%;height:80%;object-fit:contain"/></div>
       <div class="search-item-info">
         <div class="search-item-name">${name}</div>
         <div class="search-item-group">${cleanGroup(ch.group)}</div>
