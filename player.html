@@ -189,9 +189,11 @@ document.getElementById('ch-name-el').textContent = chName.replace(/[┃│]/g,'
 document.getElementById('ch-group-el').textContent = chGroup.replace(/[┃│]/g,'').trim();
 document.getElementById('loading-ch-name').textContent = chName.replace(/[┃│]/g,'').trim();
 
-if (chLogo) {
+const chLogoFallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(chName.replace(/[┃│]/g,'').trim().substring(0,2))}&background=0a2a30&color=30E9FE&size=64&bold=true`;
+
+if (chLogo || true) {
   const wrap = document.getElementById('ch-logo-wrap');
-  wrap.innerHTML = `<img src="${chLogo}" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain"/>`;
+  wrap.innerHTML = `<img src="${chLogo || chLogoFallback}" onerror="this.src='${chLogoFallback}'" style="width:80%;height:80%;object-fit:contain"/>`;
 }
 
 updateBookmarkBtn();
