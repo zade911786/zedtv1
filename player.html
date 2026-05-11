@@ -206,6 +206,20 @@ function buildMethods(url) {
   const p    = proxy(url);
   // Also try with m3u8 extension — some Stalker portals serve HLS manifests
   const m3u8 = proxy(url.replace('extension=ts','extension=m3u8'));
+  // Detect .ts / Stalker streams to prioritise HLS.js (MSE-based) over Shaka
+  const isTs = /\.(ts)(\?|$)/i.test(url) || /extension=ts/i.test(url);
+  if (isTs) {
+    return [
+      // HLS.js handles raw MPEG-TS segments via MSE — best first pick for .ts
+      { label:'Proxy → HLS.js',        url: p,    eng:'hlsjs'  },
+      { label:'Proxy HLS → HLS.js',    url: m3u8, eng:'hlsjs'  },
+      { label:'Proxy → Shaka',         url: p,    eng:'shaka'  },
+      { label:'Proxy HLS → Shaka',     url: m3u8, eng:'shaka'  },
+      { label:'Proxy → Native',        url: p,    eng:'native' },
+      { label:'Direct → HLS.js',       url: url,  eng:'hlsjs'  },
+      { label:'Direct → Native',       url: url,  eng:'native' },
+    ];
+  }
   return [
     { label:'Proxy → HLS.js',        url: p,    eng:'hlsjs'  },
     { label:'Proxy → Shaka',         url: p,    eng:'shaka'  },
@@ -310,6 +324,14 @@ function tryHlsJs(m) {
     manifestLoadingMaxRetry: 2,
     levelLoadingMaxRetry: 2,
     fragLoadingMaxRetry: 4,
+    // Allow video/mp2t so raw MPEG-TS segments are accepted
+    allowedContentTypes: [
+      'application/vnd.apple.mpegurl',
+      'application/x-mpegURL',
+      'video/mp2t',
+      'video/mpeg',
+      'application/octet-stream',
+    ],
     xhrSetup(xhr) {
       xhr.setRequestHeader('User-Agent','Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36');
     }
