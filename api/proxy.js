@@ -27,13 +27,13 @@ function buildStalkerCookie(mac, token) {
 }
 
 module.exports = async (req, res) => {
-  // CORS
+  // CORS — must be set before any early return
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept, Accept-Encoding');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type, Accept-Ranges');
 
-  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (req.method === 'OPTIONS') { res.writeHead(204).end(); return; }
 
   const { url } = req.query;
   if (!url) { res.status(400).json({ error: 'Missing url parameter' }); return; }
@@ -87,10 +87,18 @@ module.exports = async (req, res) => {
       const forward = ['content-type','content-length','content-range','accept-ranges','cache-control','last-modified','etag'];
       forward.forEach(h => { if (proxyRes.headers[h]) res.setHeader(h, proxyRes.headers[h]); });
 
+      // ── Force correct MIME for MPEG-TS (.ts) segments so browsers don't reject them ──
+      const isTsStream = !isLogoUrl && (
+        /\.(ts)(\?|$)/i.test(targetUrl) ||
+        /extension=ts/i.test(targetUrl) ||
+        (proxyRes.headers['content-type'] || '').includes('octet-stream')
+      );
+      if (isTsStream) res.setHeader('Content-Type', 'video/mp2t');
+
       // For logos, set cache header
       if (isLogoUrl) res.setHeader('Cache-Control', 'public, max-age=86400');
 
-      res.status(proxyRes.statusCode);
+      res.writeHead(proxyRes.statusCode);
       proxyRes.pipe(res);
     });
 
