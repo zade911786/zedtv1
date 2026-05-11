@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 <style>
 :root{
@@ -75,18 +74,6 @@ html,body{height:100%;overflow:hidden;background:#000;color:var(--text);font-fam
 .fsbtn i{font-size:14px;color:var(--dim);}
 .fsbtn:active{transform:scale(.9);}
 
-/* LOADING */
-#ls{position:fixed;inset:0;z-index:50;background:var(--bg2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .4s;}
-#ls.gone{opacity:0;pointer-events:none;}
-.llogo{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;background:linear-gradient(135deg,#fff 30%,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.lring{position:relative;width:52px;height:52px;}
-.lring svg{position:absolute;inset:0;animation:spin 1s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.rt{fill:none;stroke:rgba(48,233,254,.1);stroke-width:3;}
-.ra{fill:none;stroke:var(--cyan);stroke-width:3;stroke-linecap:round;stroke-dasharray:78 122;}
-.lch{font-size:13px;color:var(--dim);text-align:center;max-width:220px;line-height:1.5;}
-.lstep{font-size:11px;color:rgba(48,233,254,.4);margin-top:-6px;}
-
 /* ERROR */
 #es{position:fixed;inset:0;z-index:40;background:var(--bg2);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:30px;}
 #es.on{display:flex;}
@@ -109,12 +96,6 @@ html,body{height:100%;overflow:hidden;background:#000;color:var(--text);font-fam
 </head>
 <body>
 
-<div id="ls">
-  <div class="llogo">ZedTV</div>
-  <div class="lring"><svg viewBox="0 0 52 52"><circle class="rt" cx="26" cy="26" r="22"/><circle class="ra" cx="26" cy="26" r="22"/></svg></div>
-  <div class="lch" id="lch">Connecting…</div>
-  <div class="lstep" id="lstep"></div>
-</div>
 
 <div id="es">
   <div class="eico"><i class="fas fa-satellite-dish"></i></div>
@@ -175,7 +156,7 @@ html,body{height:100%;overflow:hidden;background:#000;color:var(--text);font-fam
 
 <script>
 // ── PARAMS ──
-const P     = new URLSearchParams(location.search);
+const P       = new URLSearchParams(location.search);
 const chName  = P.get('name')  || 'Unknown';
 const chLogo  = P.get('logo')  || '';
 const chGroup = P.get('group') || '';
@@ -185,65 +166,24 @@ const cleanName  = chName.replace(/[┃│]/g,'').trim();
 const cleanGroup = chGroup.replace(/[┃│]/g,'').trim();
 
 // ── STATE ──
-let shaka   = null;
-let hls     = null;
+let hlsInst = null;
 let ovTimer = null;
 let ovOn    = true;
-let mIdx    = 0;
 let isFS    = false;
 let ttimer;
 let saved   = JSON.parse(localStorage.getItem('zedtv_saved') || '[]');
 
 const vid = document.getElementById('vid');
-
-// ── PROXY HELPERS ──
-const proxy     = u  => '/proxy?url=' + encodeURIComponent(u);
-const logoProxy = u  => u ? '/proxy?url=' + encodeURIComponent(u) + '&type=logo' : '';
-
-// ── BUILD METHOD LIST ──
-// Stalker portal uses play_token which expires — we try multiple strategies
-function buildMethods(url) {
-  const p    = proxy(url);
-  // Also try with m3u8 extension — some Stalker portals serve HLS manifests
-  const m3u8 = proxy(url.replace('extension=ts','extension=m3u8'));
-  // Detect .ts / Stalker streams to prioritise HLS.js (MSE-based) over Shaka
-  const isTs = /\.(ts)(\?|$)/i.test(url) || /extension=ts/i.test(url);
-  if (isTs) {
-    return [
-      // HLS.js handles raw MPEG-TS segments via MSE — best first pick for .ts
-      { label:'Proxy → HLS.js',        url: p,    eng:'hlsjs'  },
-      { label:'Proxy HLS → HLS.js',    url: m3u8, eng:'hlsjs'  },
-      { label:'Proxy → Shaka',         url: p,    eng:'shaka'  },
-      { label:'Proxy HLS → Shaka',     url: m3u8, eng:'shaka'  },
-      { label:'Proxy → Native',        url: p,    eng:'native' },
-      { label:'Direct → HLS.js',       url: url,  eng:'hlsjs'  },
-      { label:'Direct → Native',       url: url,  eng:'native' },
-    ];
-  }
-  return [
-    { label:'Proxy → HLS.js',        url: p,    eng:'hlsjs'  },
-    { label:'Proxy → Shaka',         url: p,    eng:'shaka'  },
-    { label:'Proxy HLS → HLS.js',    url: m3u8, eng:'hlsjs'  },
-    { label:'Proxy HLS → Shaka',     url: m3u8, eng:'shaka'  },
-    { label:'Proxy → Native',        url: p,    eng:'native' },
-    { label:'Direct → HLS.js',       url: url,  eng:'hlsjs'  },
-    { label:'Direct → Native',       url: url,  eng:'native' },
-  ];
-}
-const METHODS = buildMethods(chUrl);
+const proxyUrl = u => '/proxy?url=' + encodeURIComponent(u);
 
 // ── UI INIT ──
 document.getElementById('chname').textContent = cleanName;
 document.getElementById('chgrp').textContent  = cleanGroup;
-document.getElementById('lch').textContent    = cleanName;
 
-// Logo: proxy through our backend to bypass port-blocked picon servers
 const av = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName.substring(0,2))}&background=0a2530&color=30E9FE&size=64&bold=true`;
 const lw = document.getElementById('chlogo');
 if (chLogo) {
-  // Use our proxy for logos (picon.tivi-ott.net:25461 is blocked by browsers)
-  const proxiedLogo = logoProxy(chLogo);
-  lw.innerHTML = `<img src="${proxiedLogo}" onerror="this.src='${av}'" style="width:86%;height:86%;object-fit:contain"/>`;
+  lw.innerHTML = `<img src="${proxyUrl(chLogo)}&type=logo" onerror="this.src='${av}'" style="width:86%;height:86%;object-fit:contain"/>`;
 } else {
   lw.innerHTML = `<img src="${av}" style="width:86%;height:86%;object-fit:contain"/>`;
 }
@@ -252,141 +192,170 @@ updateBM();
 startClock();
 schedHide();
 
-// ── ENGINE: DESTROY ALL ──
-async function killAll() {
-  if (shaka) { try { await shaka.destroy(); } catch(e){} shaka = null; }
-  if (hls)   { try { hls.destroy(); }        catch(e){} hls   = null; }
+// ── DESTROY ──
+function killAll() {
+  if (hlsInst) { try { hlsInst.destroy(); } catch(e){} hlsInst = null; }
   vid.pause();
   vid.removeAttribute('src');
   try { vid.load(); } catch(e){}
 }
 
-// ── TRY METHOD N ──
-async function tryMethod(idx) {
-  if (idx >= METHODS.length) {
-    showErr(`All ${METHODS.length} methods failed — stream may be offline or token expired`);
-    return;
-  }
-  mIdx = idx;
-  const m = METHODS[idx];
-  document.getElementById('lstep').textContent = `Method ${idx+1}/${METHODS.length}: ${m.label}`;
-  console.log('[ZedTV]', m.label, '→', m.url.substring(0,90));
+// ── PLAY — auto-detect stream type ──
+function playHlsProxy() {
+  killAll();
 
-  await killAll();
+  const isStalkerTs = /extension=ts/i.test(chUrl) || /\.ts(\?|$)/i.test(chUrl);
 
-  if      (m.eng === 'shaka')  tryShaka(m);
-  else if (m.eng === 'hlsjs')  tryHlsJs(m);
-  else                          tryNative(m);
-}
-
-// ── SHAKA ──
-async function tryShaka(m) {
-  try {
-    if (typeof shaka === 'undefined' || !window.shaka) { tryMethod(mIdx+1); return; }
-    const S = window.shaka;
-    S.polyfill.installAll();
-    if (!S.Player.isBrowserSupported()) { tryMethod(mIdx+1); return; }
-
-    shaka = new S.Player();
-    await shaka.attach(vid);
-    shaka.configure({
-      streaming: {
-        bufferingGoal: 30,
-        rebufferingGoal: 2,
-        retryParameters: { maxAttempts: 2, baseDelay: 1000 }
-      },
-      manifest: { retryParameters: { maxAttempts: 2 } }
-    });
-    shaka.getNetworkingEngine().registerRequestFilter((type, req) => {
-      req.headers['User-Agent'] = 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';
-    });
-    shaka.addEventListener('error', e => {
-      console.warn('[Shaka] err', e.detail?.code);
-      tryMethod(mIdx + 1);
-    });
-    await shaka.load(m.url);
-    onSuccess('Shaka');
-  } catch(e) {
-    console.warn('[Shaka] threw:', e.message || e);
-    tryMethod(mIdx + 1);
+  if (isStalkerTs) {
+    // Stalker portal = single continuous MPEG-TS stream, not HLS manifest
+    // Feed it directly via MediaSource API (MSE)
+    playMpegTsProxy();
+  } else {
+    // Genuine HLS (.m3u8) — use HLS.js
+    playHls();
   }
 }
 
-// ── HLS.JS ──
-function tryHlsJs(m) {
-  if (!Hls.isSupported()) { tryMethod(mIdx+1); return; }
-  hls = new Hls({
+// ── Raw MPEG-TS via MediaSource (for Stalker Portal) ──
+function playMpegTsProxy() {
+  if (!('MediaSource' in window)) { playNativeDirect(); return; }
+
+  const ms = new MediaSource();
+  vid.src = URL.createObjectURL(ms);
+
+  ms.addEventListener('sourceopen', () => {
+    let sb;
+    try {
+      sb = ms.addSourceBuffer('video/mp2t');
+    } catch(e) {
+      // mp2t not supported natively in MSE — fall through to native direct
+      URL.revokeObjectURL(vid.src);
+      playNativeDirect();
+      return;
+    }
+
+    const streamUrl = proxyUrl(chUrl);
+    fetch(streamUrl)
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const reader = r.body.getReader();
+
+        function pump() {
+          reader.read().then(({ done, value }) => {
+            if (done) { try { ms.endOfStream(); } catch(e){} return; }
+            if (sb.updating) {
+              sb.addEventListener('updateend', () => { sb.appendBuffer(value); pump(); }, { once: true });
+            } else {
+              sb.appendBuffer(value);
+              pump();
+            }
+          }).catch(err => {
+            console.warn('[MSE pump]', err);
+            showErr('Stream read error: ' + err.message);
+          });
+        }
+
+        sb.addEventListener('updateend', () => {
+          if (vid.readyState >= 2) {
+            vid.play().catch(()=>{});
+            document.getElementById('es').classList.remove('on');
+            document.getElementById('pico').className = 'fas fa-pause';
+            schedHide();
+            toast('▶ MPEG-TS Live');
+          }
+        }, { once: true });
+
+        pump();
+      })
+      .catch(err => {
+        console.warn('[MSE fetch]', err);
+        URL.revokeObjectURL(vid.src);
+        // MSE failed — try native src directly
+        playNativeDirect();
+      });
+  }, { once: true });
+
+  // Timeout fallback
+  setTimeout(() => {
+    if (vid.readyState < 2) playNativeDirect();
+  }, 10000);
+}
+
+// ── HLS.js for actual HLS manifests ──
+function playHls() {
+  if (!Hls.isSupported()) { playNativeDirect(); return; }
+
+  hlsInst = new Hls({
     enableWorker: true,
     lowLatencyMode: true,
-    maxBufferLength: 60,
+    maxBufferLength: 30,
     liveSyncDurationCount: 3,
-    liveMaxLatencyDurationCount: 10,
-    manifestLoadingMaxRetry: 2,
-    levelLoadingMaxRetry: 2,
-    fragLoadingMaxRetry: 4,
-    // Allow video/mp2t so raw MPEG-TS segments are accepted
-    allowedContentTypes: [
-      'application/vnd.apple.mpegurl',
-      'application/x-mpegURL',
-      'video/mp2t',
-      'video/mpeg',
-      'application/octet-stream',
-    ],
-    xhrSetup(xhr) {
-      xhr.setRequestHeader('User-Agent','Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36');
-    }
+    liveMaxLatencyDurationCount: 8,
+    manifestLoadingMaxRetry: 3,
+    levelLoadingMaxRetry: 3,
+    fragLoadingMaxRetry: 6,
+    fragLoadingTimeOut: 20000,
+    manifestLoadingTimeOut: 20000,
   });
-  hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    const lvls = hls.levels;
+
+  hlsInst.on(Hls.Events.MANIFEST_PARSED, () => {
+    const lvls = hlsInst.levels;
     if (lvls.length) {
       const h = lvls[lvls.length-1]?.height;
       if (h) document.getElementById('qbadge').textContent = h + 'p';
     }
-    onSuccess('HLS.js');
+    vid.play().catch(()=>{});
+    document.getElementById('es').classList.remove('on');
+    document.getElementById('pico').className = 'fas fa-pause';
+    schedHide();
   });
-  hls.on(Hls.Events.LEVEL_SWITCHED, (e,d) => {
-    const l = hls.levels[d.level];
+
+  hlsInst.on(Hls.Events.LEVEL_SWITCHED, (e,d) => {
+    const l = hlsInst.levels[d.level];
     if (l?.height) document.getElementById('qbadge').textContent = l.height + 'p';
   });
-  hls.on(Hls.Events.ERROR, (e,d) => {
-    if (d.fatal) { console.warn('[HLS.js] fatal', d.type, d.details); tryMethod(mIdx+1); }
+
+  hlsInst.on(Hls.Events.ERROR, (e, d) => {
+    if (d.fatal) {
+      console.warn('[HLS.js] fatal:', d.type, d.details);
+      playNativeDirect();
+    }
   });
-  hls.loadSource(m.url);
-  hls.attachMedia(vid);
+
+  hlsInst.loadSource(proxyUrl(chUrl));
+  hlsInst.attachMedia(vid);
 }
 
-// ── NATIVE ──
-function tryNative(m) {
-  let done = false;
+// ── FALLBACK: native src direct (for Safari etc) ──
+function playNativeDirect() {
+  killAll();
+  let settled = false;
   function settle(ok) {
-    if (done) return; done = true;
+    if (settled) return; settled = true;
     vid.removeEventListener('loadeddata', onOk);
     vid.removeEventListener('error', onErr);
-    clearTimeout(nativeTimer);
-    if (ok) onSuccess('Native'); else tryMethod(mIdx+1);
+    clearTimeout(t);
+    if (ok) {
+      vid.play().catch(()=>{});
+      document.getElementById('pico').className = 'fas fa-pause';
+      document.getElementById('es').classList.remove('on');
+      schedHide();
+      toast('▶ Playing (direct)');
+    } else {
+      showErr('Stream failed — check if it plays in VLC with fresh token');
+    }
   }
   const onOk  = () => settle(true);
   const onErr = () => settle(false);
   vid.addEventListener('loadeddata', onOk,  { once:true });
   vid.addEventListener('error',      onErr, { once:true });
-  vid.src = m.url;
+  vid.src = chUrl;
   vid.load();
-  const nativeTimer = setTimeout(() => { if (vid.readyState < 2) settle(false); }, 9000);
-}
-
-// ── SUCCESS ──
-function onSuccess(eng) {
-  document.getElementById('ls').classList.add('gone');
-  document.getElementById('es').classList.remove('on');
-  document.getElementById('pico').className = 'fas fa-pause';
-  vid.play().catch(()=>{});
-  schedHide();
-  toast('▶ Playing via ' + eng);
+  const t = setTimeout(() => { if (vid.readyState < 2) settle(false); }, 12000);
 }
 
 // ── ERROR ──
 function showErr(detail) {
-  document.getElementById('ls').classList.add('gone');
   document.getElementById('es').classList.add('on');
   document.getElementById('ecode').textContent = detail || '';
 }
@@ -394,22 +363,15 @@ function showErr(detail) {
 // ── RETRY ──
 function retryAll() {
   document.getElementById('es').classList.remove('on');
-  document.getElementById('ls').classList.remove('gone');
-  tryMethod(0);
-}
-function nextMethod() {
-  const n = mIdx + 1;
-  if (n >= METHODS.length) { toast('No more methods to try'); return; }
-  document.getElementById('ls').classList.remove('gone');
-  document.getElementById('es').classList.remove('on');
-  toast(`↪ Method ${n+1}/${METHODS.length}`);
-  tryMethod(n);
+  playHlsProxy();
 }
 function tryDirect() {
-  const idx = METHODS.findIndex(m => m.label.startsWith('Direct'));
   document.getElementById('es').classList.remove('on');
-  document.getElementById('ls').classList.remove('gone');
-  tryMethod(idx >= 0 ? idx : 5);
+  playNativeDirect();
+}
+function nextMethod() {
+  // Shuffle button — retry proxy
+  retryAll();
 }
 
 // ── CONTROLS ──
@@ -420,15 +382,15 @@ function togglePlay() {
 }
 
 function seekLive() {
-  if (hls) {
-    hls.stopLoad();
-    setTimeout(() => { hls.startLoad(); vid.play().catch(()=>{}); }, 200);
-  } else if (shaka) {
-    const el = shaka.getMediaElement();
-    if (el && isFinite(el.duration)) el.currentTime = el.duration - 0.5;
+  if (hlsInst) {
+    hlsInst.stopLoad();
+    setTimeout(() => { hlsInst.startLoad(-1); vid.play().catch(()=>{}); }, 200);
+  } else if (vid.duration && isFinite(vid.duration)) {
+    vid.currentTime = vid.duration - 0.1;
     vid.play().catch(()=>{});
   } else {
-    vid.load(); vid.play().catch(()=>{});
+    // For raw TS stream, restart
+    playHlsProxy();
   }
   toast('⏩ Live edge');
   resetOvTimer();
@@ -459,7 +421,6 @@ vid.addEventListener('click', e => {
   ovOn ? (togglePlay(), schedHide()) : showOv();
 });
 
-// Double-tap = seek live
 let lastTap = 0;
 vid.addEventListener('touchend', e => {
   const now = Date.now();
@@ -524,8 +485,8 @@ function goBack() { window.location.href = 'index.html'; }
 window.screen?.orientation?.lock?.('landscape').catch(()=>{});
 
 // ── START ──
-if (chUrl) tryMethod(0);
-else { document.getElementById('ls').classList.add('gone'); showErr('No stream URL provided'); }
+if (chUrl) playHlsProxy();
+else showErr('No stream URL provided');
 </script>
 </body>
 </html>
