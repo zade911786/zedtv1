@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>ZedTV – Live Streaming</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root {
+  --bg: #030f11;
+  --bg2: #051E22;
+  --cyan: #30E9FE;
+  --cyan2: #1ab8cc;
+  --glass: rgba(48, 233, 254, 0.07);
+  --glass-border: rgba(48, 233, 254, 0.15);
+  --glass-strong: rgba(5, 30, 34, 0.85);
+  --text: #e8f8fa;
+  --text-dim: #7ab8c0;
+  --card-h: 160px;
+  --nav-h: 72px;
+  --radius: 18px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+
+/* ── SCROLLABLE MAIN ── */
+#app{height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+#main-scroll{flex:1;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth;padding-bottom:calc(var(--nav-h) + 16px);}
+#main-scroll::-webkit-scrollbar{display:none;}
+
+/* ── HERO BANNER ── */
+.hero{position:relative;width:100%;height:220px;overflow:hidden;flex-shrink:0;}
+.hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,#051E22 0%,#0a3a40 40%,#051E22 100%);}
+.hero-glow{position:absolute;top:-40px;right:-40px;width:260px;height:260px;background:radial-gradient(circle,rgba(48,233,254,0.25) 0%,transparent 70%);pointer-events:none;}
+.hero-glow2{position:absolute;bottom:-60px;left:-20px;width:200px;height:200px;background:radial-gradient(circle,rgba(48,233,254,0.12) 0%,transparent 70%);pointer-events:none;}
+.hero-content{position:relative;z-index:2;padding:20px 18px 0;}
+.hero-top{display:flex;align-items:center;justify-content:space-between;}
+.hero-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-0.5px;background:linear-gradient(135deg,#fff 30%,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero-socials{display:flex;gap:12px;}
+.hero-socials a{width:34px;height:34px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;color:var(--cyan);font-size:15px;text-decoration:none;backdrop-filter:blur(8px);}
+.hero-socials a:active{transform:scale(0.92);}
+.hero-featured{margin-top:18px;}
+.hero-label{font-size:10px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;font-weight:600;margin-bottom:6px;}
+.hero-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;line-height:1.2;max-width:260px;}
+.hero-sub{font-size:13px;color:var(--text-dim);margin-top:4px;}
+.hero-play-btn{margin-top:14px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#051E22;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;padding:9px 20px;border-radius:50px;border:none;cursor:pointer;letter-spacing:0.3px;}
+.hero-play-btn i{font-size:11px;}
+.hero-play-btn:active{transform:scale(0.95);}
+
+/* ── SECTION HEADERS ── */
+.section-head{display:flex;align-items:center;justify-content:space-between;padding:20px 18px 10px;}
+.section-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;letter-spacing:-0.3px;}
+.section-more{font-size:12px;color:var(--cyan);font-weight:500;cursor:pointer;}
+
+/* ── GENRE PILLS (horizontal scroll) ── */
+.genre-scroll{display:flex;gap:8px;padding:0 18px 4px;overflow-x:auto;scrollbar-width:none;}
+.genre-scroll::-webkit-scrollbar{display:none;}
+.genre-pill{flex-shrink:0;padding:7px 16px;border-radius:50px;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;border:1px solid var(--glass-border);background:var(--glass);color:var(--text-dim);backdrop-filter:blur(8px);white-space:nowrap;}
+.genre-pill.active{background:linear-gradient(135deg,var(--cyan),var(--cyan2));color:#051E22;border-color:transparent;font-weight:700;}
+.genre-pill:active{transform:scale(0.94);}
+
+/* ── CHANNEL CARDS GRID ── */
+.channels-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 14px;}
+.channel-card{background:linear-gradient(145deg,rgba(5,30,34,0.9),rgba(10,45,52,0.7));border:1px solid var(--glass-border);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .15s;position:relative;}
+.channel-card:active{transform:scale(0.95);}
+.card-thumb{width:100%;aspect-ratio:16/10;background:#0a2a30;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+.card-thumb img{width:70%;height:70%;object-fit:contain;}
+.card-thumb .thumb-fallback{font-size:11px;color:var(--text-dim);font-weight:600;text-align:center;padding:6px;}
+.card-live-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ff3b5c;box-shadow:0 0 0 2px rgba(255,59,92,0.3);animation:livepulse 1.8s infinite;}
+@keyframes livepulse{0%,100%{box-shadow:0 0 0 2px rgba(255,59,92,0.3);}50%{box-shadow:0 0 0 5px rgba(255,59,92,0);}}
+.card-info{padding:6px 8px 8px;}
+.card-name{font-size:10px;font-weight:500;color:var(--text);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-group{font-size:9px;color:var(--text-dim);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* ── LOAD MORE ── */
+.load-more-wrap{padding:16px 18px;}
+.load-more-btn{width:100%;padding:13px;border-radius:50px;background:var(--glass);border:1px solid var(--glass-border);color:var(--cyan);font-family:'Syne',sans-serif;font-weight:600;font-size:14px;cursor:pointer;backdrop-filter:blur(8px);}
+.load-more-btn:active{transform:scale(0.97);}
+
+/* ── SEARCH VIEW ── */
+#search-view{display:none;flex-direction:column;height:100%;}
+#search-view.active{display:flex;}
+.search-bar-wrap{padding:16px 18px 10px;flex-shrink:0;}
+.search-bar{display:flex;align-items:center;gap:10px;background:var(--glass);border:1px solid var(--glass-border);border-radius:50px;padding:12px 18px;backdrop-filter:blur(12px);}
+.search-bar i{color:var(--cyan);font-size:15px;}
+.search-bar input{flex:1;background:none;border:none;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;}
+.search-bar input::placeholder{color:var(--text-dim);}
+.search-bar input:focus{outline:none;}
+.search-results{flex:1;overflow-y:auto;padding:0 14px;scrollbar-width:none;}
+.search-results::-webkit-scrollbar{display:none;}
+.search-item{display:flex;align-items:center;gap:12px;padding:12px 10px;border-radius:14px;cursor:pointer;margin-bottom:6px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(8px);}
+.search-item:active{transform:scale(0.97);}
+.search-item-logo{width:40px;height:40px;border-radius:10px;background:#0a2a30;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.search-item-logo img{width:80%;height:80%;object-fit:contain;}
+.search-item-info{flex:1;min-width:0;}
+.search-item-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.search-item-group{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.search-empty{text-align:center;padding:60px 20px;color:var(--text-dim);}
+.search-empty i{font-size:40px;margin-bottom:12px;color:var(--glass-border);}
+
+/* ── SAVED VIEW ── */
+#saved-view{display:none;flex-direction:column;height:100%;}
+#saved-view.active{display:flex;}
+.view-header{padding:20px 18px 14px;flex-shrink:0;}
+.view-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;}
+.saved-list{flex:1;overflow-y:auto;padding:0 14px;scrollbar-width:none;}
+.saved-list::-webkit-scrollbar{display:none;}
+.saved-empty{text-align:center;padding:80px 20px;color:var(--text-dim);}
+.saved-empty i{font-size:44px;margin-bottom:14px;display:block;color:var(--glass-border);}
+
+/* ── GENRE VIEW ── */
+#genre-view{display:none;flex-direction:column;height:100%;}
+#genre-view.active{display:flex;}
+.genre-list{flex:1;overflow-y:auto;padding:10px 14px;scrollbar-width:none;}
+.genre-list::-webkit-scrollbar{display:none;}
+.genre-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-radius:14px;cursor:pointer;margin-bottom:8px;background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(8px);}
+.genre-item:active{transform:scale(0.97);}
+.genre-item-left{display:flex;align-items:center;gap:12px;}
+.genre-item-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,rgba(48,233,254,0.15),rgba(48,233,254,0.05));display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--cyan);}
+.genre-item-name{font-size:14px;font-weight:500;}
+.genre-item-count{font-size:11px;color:var(--text-dim);}
+.genre-item-arrow{color:var(--text-dim);font-size:12px;}
+
+/* ── BOTTOM NAV ── */
+#bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);z-index:100;padding:0 6px 8px;}
+.nav-glass{height:100%;border-radius:22px;background:rgba(5,30,34,0.75);border:1px solid rgba(48,233,254,0.18);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);display:flex;align-items:center;justify-content:space-around;padding:0 10px;}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 14px;border-radius:14px;transition:all .2s;position:relative;}
+.nav-item i{font-size:20px;color:var(--text-dim);transition:color .2s;}
+.nav-item span{font-size:9px;color:var(--text-dim);font-weight:500;transition:color .2s;letter-spacing:0.5px;}
+.nav-item.active i,.nav-item.active span{color:var(--cyan);}
+.nav-item.active::before{content:'';position:absolute;top:2px;left:50%;transform:translateX(-50%);width:20px;height:2px;border-radius:2px;background:var(--cyan);}
+.nav-item:active{transform:scale(0.9);}
+
+/* ── LOADING SHIMMER ── */
+.shimmer{background:linear-gradient(90deg,rgba(48,233,254,0.04) 0%,rgba(48,233,254,0.10) 50%,rgba(48,233,254,0.04) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite;}
+@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+.card-placeholder{border-radius:14px;height:120px;}
+
+/* ── PAGE FADE ── */
+.view-fade{animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME VIEW -->
+  <div id="home-view" style="height:100%;display:flex;flex-direction:column;">
+    <div id="main-scroll">
+      <!-- HERO -->
+      <div class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-glow"></div>
+        <div class="hero-glow2"></div>
+        <div class="hero-content">
+          <div class="hero-top">
+            <div class="hero-logo">ZedTV</div>
+            <div class="hero-socials">
+              <a href="https://t.me/zade4everbot" target="_blank"><i class="fab fa-telegram"></i></a>
+              <a href="https://instagram.com/suspend.z" target="_blank"><i class="fab fa-instagram"></i></a>
+            </div>
+          </div>
+          <div class="hero-featured">
+            <div class="hero-label">🔴 Now Live</div>
+            <div class="hero-title">Champions League &amp; More</div>
+            <div class="hero-sub">26,000+ channels worldwide</div>
+            <button class="hero-play-btn" onclick="watchHeroChannel()">
+              <i class="fas fa-play"></i> Watch Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- GENRE PILLS -->
+      <div class="section-head">
+        <span class="section-title">Channels</span>
+        <span class="section-more" onclick="switchView('genre')">Browse Genres</span>
+      </div>
+      <div class="genre-scroll" id="genre-pills"></div>
+
+      <!-- CHANNEL GRID -->
+      <div style="padding:14px 0 0;">
+        <div class="channels-grid" id="channel-grid"></div>
+        <div class="load-more-wrap">
+          <button class="load-more-btn" id="load-more-btn" onclick="loadMore()">
+            <i class="fas fa-chevron-down" style="margin-right:6px;"></i>Load More
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH VIEW -->
+  <div id="search-view">
+    <div class="search-bar-wrap">
+      <div class="search-bar">
+        <i class="fas fa-magnifying-glass"></i>
+        <input type="text" id="search-input" placeholder="Search channels…" oninput="doSearch(this.value)"/>
+        <i class="fas fa-xmark" style="color:var(--text-dim);cursor:pointer;" onclick="clearSearch()"></i>
+      </div>
+    </div>
+    <div class="search-results" id="search-results">
+      <div class="search-empty">
+        <i class="fas fa-satellite-dish"></i>
+        <div style="font-size:15px;font-weight:500;margin-bottom:4px;">Search ZedTV</div>
+        <div style="font-size:13px;">Find any channel from 26,000+</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED VIEW -->
+  <div id="saved-view">
+    <div class="view-header"><div class="view-title">My List</div></div>
+    <div class="saved-list" id="saved-list"></div>
+  </div>
+
+  <!-- GENRE VIEW -->
+  <div id="genre-view">
+    <div class="view-header"><div class="view-title">Genres</div></div>
+    <div class="genre-list" id="genre-list"></div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div id="bottom-nav">
+    <div class="nav-glass">
+      <div class="nav-item active" data-view="home" onclick="switchView('home')">
+        <i class="fas fa-house-chimney"></i>
+        <span>Home</span>
+      </div>
+      <div class="nav-item" data-view="search" onclick="switchView('search')">
+        <i class="fas fa-magnifying-glass"></i>
+        <span>Search</span>
+      </div>
+      <div class="nav-item" data-view="saved" onclick="switchView('saved')">
+        <i class="fas fa-bookmark"></i>
+        <span>Saved</span>
+      </div>
+      <div class="nav-item" data-view="genre" onclick="switchView('genre')">
+        <i class="fas fa-border-all"></i>
+        <span>Genres</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+let allChannels = [];
+let filteredChannels = [];
+let displayCount = 30;
+let activeGroup = 'ALL';
+let groups = {};
+let saved = JSON.parse(localStorage.getItem('zedtv_saved') || '[]');
+
+// ── PARSE M3U ──
+async function loadM3U() {
+  try {
+    const res = await fetch('channels.m3u');
+    const text = await res.text();
+    allChannels = parseM3U(text);
+    buildGroups();
+    renderGenrePills();
+    renderGenreList();
+    filterAndRender();
+  } catch(e) {
+    console.error('M3U load error:', e);
+    // Show error gracefully
+    document.getElementById('channel-grid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--text-dim);">
+        <i class="fas fa-exclamation-circle" style="font-size:32px;margin-bottom:12px;display:block;color:var(--cyan);"></i>
+        <div style="font-size:14px;">Could not load channels.m3u<br>Place your M3U file as channels.m3u</div>
+      </div>`;
+  }
+}
+
+function parseM3U(text) {
+  const lines = text.split('\n');
+  const channels = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('#EXTINF')) {
+      const url = lines[i+1]?.trim();
+      if (!url || url.startsWith('#')) continue;
+      const name = line.split(',').slice(1).join(',').trim();
+      const logo = (line.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
+      const group = (line.match(/group-title="([^"]*)"/) || [])[1] || 'General';
+      channels.push({ name, logo, group, url });
+    }
+  }
+  return channels;
+}
+
+function buildGroups() {
+  groups = {};
+  allChannels.forEach(ch => {
+    const g = cleanGroup(ch.group);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(ch);
+  });
+}
+
+function cleanGroup(g) {
+  // Strip box-drawing chars and leading/trailing symbols
+  return g.replace(/[┃│|]/g,'').trim();
+}
+
+// ── HERO ──
+function watchHeroChannel() {
+  const first = allChannels.find(c => c.group.includes('UCL') || c.group.includes('CHAMPIONS'));
+  const ch = first || allChannels[0];
+  if (ch) openPlayer(ch);
+}
+
+// ── GENRE PILLS ──
+const GENRE_ICONS = {
+  'UCL':'⚽','CHAMPIONS':'⚽','SPORT':'🏆','FOOTBALL':'⚽','CRICKET':'🏏',
+  'NEWS':'📰','MOVIE':'🎬','CINEMA':'🎬','MUSIC':'🎵','KIDS':'🧒',
+  'INDIA':'🇮🇳','HINDI':'🇮🇳','UK':'🇬🇧','US':'🇺🇸','DE':'🇩🇪',
+  'FR':'🇫🇷','IT':'🇮🇹','AR':'🌙','AFRICA':'🌍','DEFAULT':'📺'
+};
+
+function getGenreIcon(name) {
+  const up = name.toUpperCase();
+  for (const [k,v] of Object.entries(GENRE_ICONS)) {
+    if (up.includes(k)) return v;
+  }
+  return GENRE_ICONS.DEFAULT;
+}
+
+function renderGenrePills() {
+  const el = document.getElementById('genre-pills');
+  const groupNames = Object.keys(groups).sort();
+  const top = groupNames.slice(0,20);
+  el.innerHTML = `<div class="genre-pill active" onclick="setGroup('ALL')">All</div>` +
+    top.map(g => `<div class="genre-pill" onclick="setGroup('${escapeAttr(g)}')">${getGenreIcon(g)} ${g.replace(/[A-Z]{2,}\|/g,'').trim().split('|').pop().trim()}</div>`).join('');
+}
+
+function setGroup(g) {
+  activeGroup = g;
+  document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  displayCount = 30;
+  filterAndRender();
+  document.getElementById('main-scroll').scrollTo({top:220,behavior:'smooth'});
+}
+
+function filterAndRender() {
+  if (activeGroup === 'ALL') filteredChannels = [...allChannels];
+  else filteredChannels = allChannels.filter(c => cleanGroup(c.group) === activeGroup);
+  renderGrid();
+}
+
+// ── GRID ──
+function renderGrid() {
+  const grid = document.getElementById('channel-grid');
+  const toShow = filteredChannels.slice(0, displayCount);
+  grid.innerHTML = toShow.map(ch => channelCard(ch)).join('');
+  const btn = document.getElementById('load-more-btn');
+  btn.style.display = filteredChannels.length > displayCount ? 'block' : 'none';
+}
+
+function channelCard(ch) {
+  const name = ch.name.replace(/[┃│]/g,'').trim();
+  const logoHtml = ch.logo
+    ? `<img src="${escapeAttr(ch.logo)}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"/><div class="thumb-fallback" style="display:none">${name.substring(0,6)}</div>`
+    : `<div class="thumb-fallback">${name.substring(0,8)}</div>`;
+  const isSaved = saved.some(s => s.url === ch.url);
+  const chData = encodeURIComponent(JSON.stringify({name:ch.name,logo:ch.logo,group:ch.group,url:ch.url}));
+  return `<div class="channel-card" onclick="openPlayer(${chData})">
+    <div class="card-thumb">
+      ${logoHtml}
+      <div class="card-live-dot"></div>
+    </div>
+    <div class="card-info">
+      <div class="card-name">${name}</div>
+      <div class="card-group">${cleanGroup(ch.group)}</div>
+    </div>
+  </div>`;
+}
+
+function loadMore() {
+  displayCount += 30;
+  renderGrid();
+}
+
+// ── OPEN PLAYER ──
+function openPlayer(ch) {
+  if (typeof ch === 'string') ch = JSON.parse(decodeURIComponent(ch));
+  const params = new URLSearchParams({
+    name: ch.name,
+    logo: ch.logo || '',
+    group: ch.group || '',
+    url: ch.url
+  });
+  window.location.href = 'player.html?' + params.toString();
+}
+
+// ── SEARCH ──
+let searchTimer;
+function doSearch(q) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (!q.trim()) {
+      document.getElementById('search-results').innerHTML = `<div class="search-empty"><i class="fas fa-satellite-dish"></i><div style="font-size:15px;font-weight:500;margin-bottom:4px">Search ZedTV</div><div style="font-size:13px">Find any channel from 26,000+</div></div>`;
+      return;
+    }
+    const ql = q.toLowerCase();
+    const results = allChannels.filter(c => c.name.toLowerCase().includes(ql) || c.group.toLowerCase().includes(ql)).slice(0,50);
+    const el = document.getElementById('search-results');
+    if (!results.length) {
+      el.innerHTML = `<div class="search-empty"><i class="fas fa-face-frown"></i><div>No results for "${q}"</div></div>`;
+      return;
+    }
+    el.innerHTML = results.map(ch => {
+      const name = ch.name.replace(/[┃│]/g,'').trim();
+      const chData = encodeURIComponent(JSON.stringify({name:ch.name,logo:ch.logo,group:ch.group,url:ch.url}));
+      return `<div class="search-item view-fade" onclick="openPlayer(${chData})">
+        <div class="search-item-logo">${ch.logo ? `<img src="${escapeAttr(ch.logo)}" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain"/>` : `<i class="fas fa-tv" style="color:var(--cyan);font-size:16px"></i>`}</div>
+        <div class="search-item-info">
+          <div class="search-item-name">${name}</div>
+          <div class="search-item-group">${cleanGroup(ch.group)}</div>
+        </div>
+        <i class="fas fa-play" style="color:var(--cyan);font-size:12px;"></i>
+      </div>`;
+    }).join('');
+  }, 200);
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  doSearch('');
+}
+
+// ── SAVED ──
+function renderSaved() {
+  const el = document.getElementById('saved-list');
+  if (!saved.length) {
+    el.innerHTML = `<div class="saved-empty"><i class="fas fa-bookmark"></i><div style="font-size:15px;font-weight:500">Nothing saved yet</div><div style="font-size:13px;margin-top:4px">Bookmark channels from the player</div></div>`;
+    return;
+  }
+  el.innerHTML = saved.map(ch => {
+    const name = ch.name.replace(/[┃│]/g,'').trim();
+    const chData = encodeURIComponent(JSON.stringify(ch));
+    return `<div class="search-item view-fade" onclick="openPlayer(${chData})">
+      <div class="search-item-logo">${ch.logo ? `<img src="${escapeAttr(ch.logo)}" onerror="this.style.display='none'" style="width:80%;height:80%;object-fit:contain"/>` : `<i class="fas fa-tv" style="color:var(--cyan);font-size:16px"></i>`}</div>
+      <div class="search-item-info">
+        <div class="search-item-name">${name}</div>
+        <div class="search-item-group">${cleanGroup(ch.group)}</div>
+      </div>
+      <i class="fas fa-play" style="color:var(--cyan);font-size:12px;"></i>
+    </div>`;
+  }).join('');
+}
+
+// ── GENRE LIST ──
+function renderGenreList() {
+  const el = document.getElementById('genre-list');
+  const sortedGroups = Object.entries(groups).sort((a,b) => b[1].length - a[1].length);
+  el.innerHTML = sortedGroups.map(([g,chs]) => `
+    <div class="genre-item view-fade" onclick="selectGenreFromList('${escapeAttr(g)}')">
+      <div class="genre-item-left">
+        <div class="genre-item-icon">${getGenreIcon(g)}</div>
+        <div>
+          <div class="genre-item-name">${g}</div>
+          <div class="genre-item-count">${chs.length} channels</div>
+        </div>
+      </div>
+      <i class="fas fa-chevron-right genre-item-arrow"></i>
+    </div>`).join('');
+}
+
+function selectGenreFromList(g) {
+  switchView('home');
+  setTimeout(() => {
+    activeGroup = g;
+    displayCount = 30;
+    filterAndRender();
+    // Highlight correct pill or scroll to channels
+    document.getElementById('main-scroll').scrollTo({top:220,behavior:'smooth'});
+  }, 100);
+}
+
+// ── VIEW SWITCHING ──
+function switchView(view) {
+  ['home-view','search-view','saved-view','genre-view'].forEach(v => {
+    const el = document.getElementById(v);
+    el.style.display = 'none';
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const target = document.getElementById(view + '-view');
+  const nav = document.querySelector(`[data-view="${view}"]`);
+  
+  if (view === 'home') {
+    target.style.display = 'flex';
+  } else {
+    target.style.display = 'flex';
+    target.classList.add('active');
+  }
+  if (nav) nav.classList.add('active');
+
+  if (view === 'saved') { saved = JSON.parse(localStorage.getItem('zedtv_saved')||'[]'); renderSaved(); }
+  if (view === 'search') setTimeout(() => document.getElementById('search-input').focus(), 100);
+}
+
+// ── UTILS ──
+function escapeAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  switchView('home');
+  loadM3U();
+});
+</script>
+</body>
+</html>
